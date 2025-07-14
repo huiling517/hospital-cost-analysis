@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 # Streamlit title
-st.title("B1 單項成本分析 - 資料處理平台")
+st.title("醫療單項成本分析 - 資料處理平台")
 
 # Streamlit 描述
 st.write("""
