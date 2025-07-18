@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
-import openpyxl  # 明確導入 openpyxl
 
 # Streamlit title
 st.title("B1 單項成本分析 - 資料處理平台")
@@ -43,13 +42,13 @@ if st.button("開始處理數據"):
         try:
             # 讀取上傳的資料
             st.info("正在讀取資料...")
-            df1 = pd.read_excel(uploaded_files[file_names[0]], sheet_name='成本1-52', engine='openpyxl')
-            df2 = pd.read_excel(uploaded_files[file_names[1]], engine='openpyxl')
-            df3 = pd.read_excel(uploaded_files[file_names[2]], engine='openpyxl')
-            df4 = pd.read_excel(uploaded_files[file_names[3]], sheet_name='總合併', engine='openpyxl')
-            df5 = pd.read_excel(uploaded_files[file_names[4]], engine='openpyxl')
-            df6 = pd.read_excel(uploaded_files[file_names[5]], engine='openpyxl')
-            df7 = pd.read_excel(uploaded_files[file_names[6]], sheet_name='材料利潤', engine='openpyxl')
+            df1 = pd.read_excel(uploaded_files[file_names[0]], sheet_name='成本1-52')
+            df2 = pd.read_excel(uploaded_files[file_names[1]])
+            df3 = pd.read_excel(uploaded_files[file_names[2]])
+            df4 = pd.read_excel(uploaded_files[file_names[3]], sheet_name='總合併')
+            df5 = pd.read_excel(uploaded_files[file_names[4]])
+            df6 = pd.read_excel(uploaded_files[file_names[5]])
+            df7 = pd.read_excel(uploaded_files[file_names[6]], sheet_name='材料利潤')
         except Exception as e:
             st.error(f"讀取檔案時發生錯誤：{e}")
             st.stop()
@@ -122,7 +121,7 @@ if st.button("開始處理數據"):
         # 產生 Excel 檔案
         st.info("正在生成 Excel 檔案...")
         output_file = io.BytesIO()
-        merged_data1.to_excel(output_file, index=False, sheet_name="報表結果", engine='openpyxl')
+        merged_data1.to_excel(output_file, index=False, sheet_name="報表結果")
         output_file.seek(0)
 
         # 提供下載連結
