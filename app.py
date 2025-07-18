@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import io
 
 # Streamlit title
-st.title("醫療單項成本分析 - 資料處理平台")
+st.title("B1 單項成本分析 - 資料處理平台")
 
 # Streamlit 描述
 st.write("""
-這是一個用於進行醫療單項成本分析的應用程式，您可以上傳相關 Excel 檔案，進行數據處理，並下載結果。
+這是一個用於進行 B1 單項成本分析的應用程式，您可以上傳相關 Excel 檔案，進行數據處理，並下載結果。
 請依照順序上傳以下檔案：
 1. 分項成本.xlsx  
 2. 開刀房時間.xlsx  
@@ -38,20 +39,25 @@ if st.button("開始處理數據"):
     if None in uploaded_files.values():
         st.error("請確保所有檔案均已上傳！")
     else:
-        # 讀取上傳的資料
-        st.info("正在讀取資料...")
-        df1 = pd.read_excel(uploaded_files[file_names[0]], sheet_name='成本1-52')
-        df2 = pd.read_excel(uploaded_files[file_names[1]])
-        df3 = pd.read_excel(uploaded_files[file_names[2]])
-        df4 = pd.read_excel(uploaded_files[file_names[3]], sheet_name='總合併')
-        df5 = pd.read_excel(uploaded_files[file_names[4]])
-        df6 = pd.read_excel(uploaded_files[file_names[5]])
-        df7 = pd.read_excel(uploaded_files[file_names[6]], sheet_name='材料利潤')
+        try:
+            # 讀取上傳的資料
+            st.info("正在讀取資料...")
+            df1 = pd.read_excel(uploaded_files[file_names[0]], sheet_name='成本1-52')
+            df2 = pd.read_excel(uploaded_files[file_names[1]])
+            df3 = pd.read_excel(uploaded_files[file_names[2]])
+            df4 = pd.read_excel(uploaded_files[file_names[3]], sheet_name='總合併')
+            df5 = pd.read_excel(uploaded_files[file_names[4]])
+            df6 = pd.read_excel(uploaded_files[file_names[5]])
+            df7 = pd.read_excel(uploaded_files[file_names[6]], sheet_name='材料利潤')
+        except Exception as e:
+            st.error(f"讀取檔案時發生錯誤：{e}")
+            st.stop()
 
-        # 清理數據（去除欄位名稱空格）
+        # 清理數據（去除欄位名稱空格並轉小寫）
         for df in [df1, df2, df3, df4, df5, df6, df7]:
-            df.columns = df.columns.str.strip()
+            df.columns = df.columns.str.strip().str.lower()
 
+        # 特殊欄位的清理處理
         df1["病患姓名"] = df1["病患姓名"].str.strip()
         df2["病患姓名"] = df2["病患姓名"].str.strip()
         df4["病歷號"] = df4["病歷號"].str.strip()
@@ -63,12 +69,16 @@ if st.button("開始處理數據"):
 
         # 合併數據
         st.info("正在清理與合併資料...")
-        merged_data1 = pd.merge(df1, df2, on="病患姓名")
-        merged_data1 = pd.merge(merged_data1, df5, on="手術院碼")
-        merged_data1 = pd.merge(merged_data1, df6, on="手術院碼")
-        merged_data1 = pd.merge(merged_data1, df4, on=["病歷號", "醫師", "手術院碼"])
-        merged_data1 = pd.merge(merged_data1, df7, on=["病歷號", "手術院碼"], how="left")
-        merged_data1 = pd.merge(merged_data1, df3, on="醫師")
+        try:
+            merged_data1 = pd.merge(df1, df2, on="病患姓名")
+            merged_data1 = pd.merge(merged_data1, df5, on="手術院碼")
+            merged_data1 = pd.merge(merged_data1, df6, on="手術院碼")
+            merged_data1 = pd.merge(merged_data1, df4, on=["病歷號", "醫師", "手術院碼"])
+            merged_data1 = pd.merge(merged_data1, df7, on=["病歷號", "手術院碼"], how="left")
+            merged_data1 = pd.merge(merged_data1, df3, on="醫師")
+        except KeyError as e:
+            st.error(f"合併資料時發生錯誤，缺少必要欄位：{e}")
+            st.stop()
 
         # 計算成本
         st.info("正在計算成本...")
@@ -90,7 +100,7 @@ if st.button("開始處理數據"):
         merged_data1["行政管理成本"] = merged_data1["直接成本合計"] * 0.05
         merged_data1["成本總計"] = merged_data1["直接成本合計"] + merged_data1["作業成本"] + merged_data1["行政管理成本"]
 
-        # 重新排列列順序（已修正拼寫錯誤）
+        # 重新排列列順序
         columns_order = [ '手術院碼','病患姓名','人數','病歷號','日期','健保收入','健保點值(6%)', '健保收入淨額', '醫師', '醫師抽成費', '醫師固定薪成本',
                          '刷手及流動護士成本','外科助手成本', '恢復室成本', '行政人員', '用人成本合計', '特材費', '藥費', '藥品醫材成本合計',
                          '設備折舊成本', '房屋折舊成本', '維修費用', '設施設備費用合計', '直接成本合計', '作業成本',
@@ -98,24 +108,26 @@ if st.button("開始處理數據"):
         missing_columns = [col for col in columns_order if col not in merged_data1.columns]
         if missing_columns:
             st.warning(f"以下欄位缺失: {missing_columns}")
-        else:
-            merged_data1 = merged_data1[columns_order]
+        merged_data1 = merged_data1[[col for col in columns_order if col in merged_data1.columns]]
 
         # 填充空值並四捨五入
         numeric_columns = merged_data1.select_dtypes(include=['float64', 'int64']).columns
         merged_data1[numeric_columns] = merged_data1[numeric_columns].fillna(0).round(0).astype(int)
-        merged_data1['日期'] = pd.to_datetime(merged_data1['日期']).dt.strftime('%y%m%d')
+        merged_data1['日期'] = pd.to_datetime(merged_data1['日期'], errors='coerce')
+        if merged_data1['日期'].isnull().any():
+            st.warning("部分日期欄位非有效日期，將以空值處理。")
+        merged_data1['日期'] = merged_data1['日期'].dt.strftime('%y%m%d')
 
         # 產生 Excel 檔案
         st.info("正在生成 Excel 檔案...")
-        output_file = "產出報表1-報表版(全部院碼).xlsx"
+        output_file = io.BytesIO()
         merged_data1.to_excel(output_file, index=False, sheet_name="報表結果")
+        output_file.seek(0)
 
         # 提供下載連結
-        with open(output_file, "rb") as file:
-            st.download_button(
-                label="下載結果報表",
-                data=file,
-                file_name=output_file,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        st.download_button(
+            label="下載結果報表",
+            data=output_file,
+            file_name="產出報表1-報表版(全部院碼).xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
